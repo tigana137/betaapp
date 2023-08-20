@@ -183,3 +183,4 @@ class Logins(models.Model):
     sid = models.PositiveSmallIntegerField()
     field = models.TextField(blank=True,null=True)
     val = models.TextField(blank=True,null=True)
+

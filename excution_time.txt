@@ -1,6 +1,0 @@
-Execution class_ids: 0.1801614761352539 seconds 
-
-Execution class_ids: 0.16085386276245117 seconds 
-
-Execution class_ids: 0.16155648231506348 seconds 
-
