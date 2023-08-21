@@ -38,9 +38,8 @@ class ExcelData(models.Model):
 
 
 class Eleves(models.Model):
-    sexe_chocies = [('m', 'ذكر'), ('f', 'أنثى')]
 
-    eid = models.IntegerField(primary_key=True,)
+    eid = models.IntegerField(primary_key=True)
     id = models.BigIntegerField(blank=True, null=True)
     nom = models.CharField(max_length=40)
     prenom = models.CharField(max_length=40)
@@ -56,6 +55,7 @@ class Eleves(models.Model):
     next_class_id = models.ForeignKey('Classes', on_delete=models.PROTECT,
                                       default=None, blank=True, null=True, related_name='next_students')
 
+    ecole = models.ForeignKey(Ecole_data ,on_delete=models.PROTECT)
     class Meta:
         ordering = ['nom', 'prenom']
 
@@ -77,6 +77,7 @@ class ElevesTransfer(models.Model):
     sexe = models.CharField(max_length=10,blank=True,null=True)
     level = models.CharField(max_length=10,blank=True,null=True)
     is_graduated = models.BooleanField(max_length=10,blank=True,null=True)
+    ecole = models.ForeignKey(Ecole_data ,on_delete=models.PROTECT)
 
 
 
@@ -86,12 +87,15 @@ class Profs(models.Model):
     nom = models.CharField(max_length=40)
     prenom = models.CharField(max_length=40)
     is_active = models.BooleanField(default=None, blank=True, null=True)
+    ecole = models.ForeignKey(Ecole_data ,on_delete=models.PROTECT)
 
 
 class Classes(models.Model):
     level_choices = [('0', 'التحضيري'), ('1', 'الأولى'), ('2', 'الثانية'),
                      ('3', 'الثالثة'), ('4', 'الرابعة'), ('5', 'الخامسة'), ('6', 'السادسة')]
 
+    id = models.BigIntegerField(primary_key=True)
+    
     name = models.CharField(max_length=60)
     # level = models.CharField(max_length=1,choices=level_choices)
     level = models.CharField(max_length=10)
@@ -101,7 +105,7 @@ class Classes(models.Model):
     next_class_id = models.ForeignKey(
         'self', on_delete=models.SET_NULL, null=True, blank=True)
     is_active = models.BooleanField(default=False)
-
+    ecole = models.ForeignKey(Ecole_data ,on_delete=models.PROTECT)
     def activate(self):
         def add_matiere(saisie_classe, name, saisie_matiere_id):
             matiere = Matieres()
@@ -155,32 +159,22 @@ class Matieres(models.Model):
     saisie_classe = models.ForeignKey(Classes, on_delete=models.CASCADE)
     saisie_prof = models.ForeignKey(
         Profs, on_delete=models.CASCADE, blank=True, null=True)  # is it cascade ?
-
+    ecole = models.ForeignKey(Ecole_data ,on_delete=models.PROTECT)
     class Meta:
         unique_together = ('field', 'saisie_classe')
         ordering = ['saisie_classe',]
-
-
-class Matieres2(models.Model):  # not usable for now
-    name = models.CharField(max_length=60, blank=True, null=True)
-    saisie_matiere_id = models.PositiveSmallIntegerField(default=0)
-    saisie_classe = models.ForeignKey('Classes', on_delete=models.CASCADE)
-    saisie_prof = models.ForeignKey(
-        Profs, on_delete=models.CASCADE, blank=True, null=True)  # is it cascade ?
-
-    class Meta:
-        unique_together = ('name', 'saisie_classe')
-        ordering = ['saisie_classe', 'saisie_matiere_id']
 
 
 class excution_time(models.Model):
     id2 = models.PositiveSmallIntegerField()
     funct = models.TextField(blank=True,null=True)
     time = models.TextField(blank=True,null=True)
+    ecole = models.ForeignKey(Ecole_data ,on_delete=models.SET_NULL,blank=True,null=True)
 
 
 class Logins(models.Model):
     sid = models.PositiveSmallIntegerField()
     field = models.TextField(blank=True,null=True)
     val = models.TextField(blank=True,null=True)
+    ecole = models.ForeignKey(Ecole_data ,on_delete=models.PROTECT)
 

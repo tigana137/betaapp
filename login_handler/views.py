@@ -38,50 +38,11 @@ def del_all(request):
 
 @api_view(['GET'])
 def test(request):
-    return Response(True)
-    update_dre_del1()
+
 
     from datetime import date
     from django.db import connection
 
-    def bulk_update_eleves_arrives(data_from_eleves):
-        sql = """
-                UPDATE login_handler_elevestransfer
-                SET sexe = CASE id
-            """
-        params = []
-        for eleve in data_from_eleves:
-            sql += f"WHEN %s THEN %s "
-            params.extend([eleve.id, eleve.sexe])
-
-        sql += "END, level = CASE id "
-        for eleve in data_from_eleves:
-            sql += f"WHEN %s THEN %s "
-            params.extend([eleve.id, eleve.class_id.level])
-
-        sql += "END, is_graduated = CASE id "
-        for eleve in data_from_eleves:
-            sql += f"WHEN %s THEN %s "
-            params.extend([eleve.id, eleve.is_graduated])
-
-        sql += "END WHERE id IN (%s)" % ','.join(
-                ['%s'] * len(data_from_eleves))
-        params.extend(eleve.id for eleve in data_from_eleves)
-
-        with connection.cursor() as cursor:
-            cursor.execute(sql, params)
-
-
-
-
-    # zid condition on cas ou mal9itouch l telmith mi data t3 l eleves
-    eleves_arrives = ElevesTransfer.objects.filter(arriv_sorti=True)# .values_list('id',flat=True)
-    eleves_arrives = eleves_arrives.filter(date_sortie__lt=date(2023, 6, 30),date_sortie__gt=date(2022, 6, 30))  # hedhi balha 5atr te5oulk t3 2022-2023
-    data_from_eleves = Eleves.objects.filter(id__in =eleves_arrives)
-    found_ids = [eleve.id for eleve in data_from_eleves]
-    not_found_ids =[id for id in eleves_arrives if id not in found_ids]
-
-    bulk_update_eleves_arrives(data_from_eleves)
     return Response(True)
 
 
@@ -129,7 +90,6 @@ def verify_logins(request):
 
 @api_view(['GET'])
 def initiate_data(request):
-    return Response(True)
 
     def del_all():
         Matieres.objects.all().delete()
@@ -140,7 +100,9 @@ def initiate_data(request):
     initiate(dic)
     return Response(True)
 
-
+@api_view(['GET'])
+def initiate_data_to_fronent(request):
+    return Response(True)
 
 @api_view(['GET'])
 def get_all_classes(request):
