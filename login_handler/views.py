@@ -11,7 +11,7 @@ from rest_framework.response import Response
 from .models import Ecole_data, Eleves, Classes, ElevesTransfer, Matieres, Matieres, Profs, Logins, Del1, Dre, sexeEleves 
 from .serializers import Eleves_serializer, Matiere_serializer, Profs_serializer, classes_serializer, ecole_data_serializer
 from .views_subfunct import del__class, verify_cnte, verify_stat, add_class
-from .backend_algo import chgmentClas1, initiate, check_active_profs, prep_annee_scolaire_is_available, ta7dhir_is_graduated
+from .backend_algo import chgmentClas1, initiate, check_active_profs, prep_annee_scolaire_is_available, ta7dhir_is_graduated, update_dre_del1
 import requests
 import time
 from bs4 import BeautifulSoup as bs
@@ -38,6 +38,9 @@ def del_all(request):
 
 @api_view(['GET'])
 def test(request):
+    return Response(True)
+    update_dre_del1()
+
     from datetime import date
     from django.db import connection
 

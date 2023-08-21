@@ -1,0 +1,4 @@
+ngrok:
+    "choco install ngrok"  in cmd with admin priv 
+    "ngrok config add-authtoken 2UI0b60TVMI50hsGpB7GU52b28n_5tfwojHwc4of8NiGLQ2bo" the last part is the token given to u in the website
+    ngrok http 8000   (excute in the cmd to connect django to the server)
