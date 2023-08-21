@@ -38,7 +38,7 @@ class ExcelData(models.Model):
 
 
 class Eleves(models.Model):
-    id_1 = models.BigIntegerField(primary_key=True)
+    id_1 = models.AutoField(primary_key=True)
     eid = models.IntegerField()
     id = models.BigIntegerField(blank=True, null=True)
     nom = models.CharField(max_length=40)
@@ -94,9 +94,8 @@ class Classes(models.Model):
     level_choices = [('0', 'التحضيري'), ('1', 'الأولى'), ('2', 'الثانية'),
                      ('3', 'الثالثة'), ('4', 'الرابعة'), ('5', 'الخامسة'), ('6', 'السادسة')]
 
-    id_1 = models.BigIntegerField(primary_key=True)
+    id_1 = models.AutoField(primary_key=True)
     id = models.BigIntegerField()
-
     name = models.CharField(max_length=60)
     # level = models.CharField(max_length=1,choices=level_choices)
     level = models.CharField(max_length=10)

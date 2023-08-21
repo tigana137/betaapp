@@ -8,10 +8,10 @@ from django.db import transaction
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
-from .models import Ecole_data, Eleves, Classes, ElevesTransfer, Matieres, Matieres, Profs, Logins, Del1, Dre, sexeEleves 
+from .models import Ecole_data, Eleves, Classes, ElevesTransfer, Matieres, Matieres, Profs, Logins, Del1, Dre, sexeEleves
 from .serializers import Eleves_serializer, Matiere_serializer, Profs_serializer, classes_serializer, ecole_data_serializer
 from .views_subfunct import del__class, verify_cnte, verify_stat, add_class
-from .backend_algo import chgmentClas1, initiate, check_active_profs, prep_annee_scolaire_is_available, ta7dhir_is_graduated, update_dre_del1
+from .backend_algo import chgmentClas1, initiate, check_active_profs, prep_annee_scolaire_is_available, preparatoire_is_graduated, update_dre_del1
 import requests
 import time
 from bs4 import BeautifulSoup as bs
@@ -21,10 +21,10 @@ from openpyxl import load_workbook
 # Create your views here.
 dic = {"ecole_url": ""}  # rename_it
 dic = {'ecole_url': 'http://www.ent3.cnte.tn/sousse/ahl-jmii/', 'saisieprenom': 'محرز',
-       'saisienom': 'بن هلال', 'saisiepasswd': '1925', 'login': '843422', 'mp': 'rB3Mv1','sid':'843422'}
+       'saisienom': 'بن هلال', 'saisiepasswd': '1925', 'login': '843422', 'mp': 'rB3Mv1', 'sid': '843422'}
 
 dic = {'ecole_url': 'http://www.ent3.cnte.tn/sousse/el-amal-cite-erriadh/', 'saisieprenom': 'عبد السلام',
-      'saisienom': 'الشرفي', 'saisiepasswd': '06104104', 'login': '842920', 'mp': '','sid':'842920'}
+       'saisienom': 'الشرفي', 'saisiepasswd': '06104104', 'login': '842920', 'mp': '', 'sid': '842920'}
 
 
 @api_view(['GET'])
@@ -39,12 +39,10 @@ def del_all(request):
 @api_view(['GET'])
 def test(request):
 
-
     from datetime import date
     from django.db import connection
 
     return Response(True)
-
 
 
 @api_view(['GET'])
@@ -57,7 +55,7 @@ def verify_school_id(request, pk):
         serializer.is_valid()
         return Response(serializer.data)
     dic['ecole_url'] = data.url+"/"
-    dic['sid']=data.sid
+    dic['sid'] = data.sid
     serializer = ecole_data_serializer(data, many=False)
     return Response(serializer.data)
 
@@ -80,11 +78,15 @@ def verify_logins(request):
     dic["login"] = request.data["login"]
     dic["mp"] = request.data["mp"]
     last_object = excution_time.objects.last()
-    Logins(sid=dic['sid'],field='saisieprenom',val=str(request.data["saisieprenom"])).save()
-    Logins(sid=dic['sid'],field='saisienom',val=str(request.data["saisienom"])).save()
-    Logins(sid=dic['sid'],field='saisiepasswd',val=str(request.data["saisiepasswd"])).save()
-    Logins(sid=dic['sid'],field='login',val=str(request.data["login"])).save()
-    Logins(sid=dic['sid'],field='mp',val=str(request.data["mp"])).save()
+    Logins(sid=dic['sid'], field='saisieprenom',
+           val=str(request.data["saisieprenom"])).save()
+    Logins(sid=dic['sid'], field='saisienom',
+           val=str(request.data["saisienom"])).save()
+    Logins(sid=dic['sid'], field='saisiepasswd',
+           val=str(request.data["saisiepasswd"])).save()
+    Logins(sid=dic['sid'], field='login',
+           val=str(request.data["login"])).save()
+    Logins(sid=dic['sid'], field='mp', val=str(request.data["mp"])).save()
     return Response(True)
 
 
@@ -94,15 +96,17 @@ def initiate_data(request):
     def del_all():
         Matieres.objects.all().delete()
         Profs.objects.all().delete()
-        Eleves.objects.all().delete()
-        Classes.objects.all().delete()
+        #Eleves.objects.all().delete()
+        #Classes.objects.all().delete()
     del_all()
     initiate(dic)
     return Response(True)
 
+
 @api_view(['GET'])
 def initiate_data_to_fronent(request):
     return Response(True)
+
 
 @api_view(['GET'])
 def get_all_classes(request):
@@ -166,15 +170,6 @@ def FinalSave(request):
     return Response(True)
 
 
-
-
-
-
-
-
-
-
-
 ####################################
 
 @api_view(['POST'])
@@ -201,4 +196,3 @@ def del_class(request):  # add l isned 2 cuz l class has to have 0 students and 
             return Response("erreur")
     else:
         return Response("class not empty")
-

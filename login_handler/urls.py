@@ -28,7 +28,7 @@ urlpatterns = [
 "http://localhost:8000/login_handler/test/"
 "http://localhost:8000/login_handler/verify_school_id/843422?format=json"
 "http://localhost:8000/login_handler/verify_logins/?format=json"
-"http://localhost:8000/login_handler/initiate_data/?format=json"
+"http://localhost:8000/login_handler/initiate_data/"
 "http://localhost:8000/login_handler/initiate_data2/?format=json"
 "http://localhost:8000/login_handler/add_new_class/?format=json"
 "http://localhost:8000/login_handler/del_class/?format=json"
