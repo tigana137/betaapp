@@ -293,7 +293,7 @@ def extract_moyen(ecole_url, sid):
         eleves_racha_age()
 
 
-def prof_data(ecole_url):   # 9a3d te5ou fil info l kol meme ci 9a3d test3ml ken fil eid nom prenom chouf ken 7achtk bihom sinn let them go
+def prof_data(ecole_url, sid):   # 9a3d te5ou fil info l kol meme ci 9a3d test3ml ken fil eid nom prenom chouf ken 7achtk bihom sinn let them go
     url = ecole_url+"list_enseignant.php"
     response = request.get(url)
     soup = bs(response.text, 'html.parser')
@@ -315,6 +315,7 @@ def prof_data(ecole_url):   # 9a3d te5ou fil info l kol meme ci 9a3d test3ml ken
             nom=prof_name,
             prenom=prof_prenom,
             id=prof_id_ministre if prof_id_ministre != '' else None,
+            ecole_id=sid
         )
         profs_array.append(prof)
     with transaction.atomic():
@@ -343,8 +344,8 @@ def matieres2(ecole_url):    # not used wel matiere tbadlk wallet Matiers2 (n7ki
     url = ecole_url+"modifaffect2.php?saisie_classe_envoi="
     payload = {"saisie_classe_envoi": ""}
     for active_class in active_classes:
-        payload["saisie_classe_envoi"] = str(active_class.id)
-        response = request.get(url=url+str(active_class.id), data=payload)
+        payload["saisie_classe_envoi"] = str(active_class.cid)
+        response = request.get(url=url+str(active_class.cid), data=payload)
         soup = bs(response.content.decode(
             encoding='utf-8', errors='ignore'), 'html.parser')
         tr_table = soup.find('tr', {"id": 'cadreCentral0'})
@@ -358,10 +359,10 @@ def matieres2(ecole_url):    # not used wel matiere tbadlk wallet Matiers2 (n7ki
                 nom_matiere = tds[1].find('select').option.text.strip()
                 try:
                     matiere = Matieres.objects.get(name__contains=nom_matiere[len(
-                        nom_matiere)-7:], saisie_classe=active_class.id)
+                        nom_matiere)-7:], saisie_classe=active_class.cid)
                 except:
                     print("error matieres2 : "+nom_matiere +
-                          '  '+str(active_class.id))
+                          '  '+str(active_class.cid))
                 matiere.saisie_prof = Profs.objects.get(eid=int(prof_eid))
                 matiere.save()
 
@@ -433,8 +434,8 @@ def matieres(ecole_url):
     for active_class in active_classes:
         start_time = time.time()
         matieres_dic = {}
-        payload["saisie_classe_envoi"] = str(active_class.id)
-        response = request.get(url=url+str(active_class.id), data=payload)
+        payload["saisie_classe_envoi"] = str(active_class.cid)
+        response = request.get(url=url+str(active_class.cid), data=payload)
         soup = bs(response.content.decode(
             encoding='utf-8', errors='ignore'), 'html.parser')
         tr_table = soup.find('tr', {"id": 'cadreCentral0'})
@@ -500,7 +501,7 @@ def initiate(dic):
 
     request.post(url=url, data=payload)
 
-    #extract_moyen_from_archive(dic['ecole_url'], dic['sid'])
+    prof_data(dic['ecole_url'])
     return
     # --------------
     # last_object = excution_time.objects.last()
@@ -648,11 +649,11 @@ def extract_moyen_from_archive(ecole_url, sid):
             default=None,
             output_field=BooleanField()
         )
-        
+
         eleve = Eleves(id_1=pks_dic[eid], moyen=moyen_float, resultat=resultat,
                        is_graduated=case_expression)
         eleves_to_update.append(eleve)
-        
+
     Eleves.objects.bulk_update(eleves_to_update, fields=[
         'moyen', 'resultat', 'is_graduated'])
     eleves_racha_age()
@@ -756,7 +757,7 @@ def Eleves_arrives_sexe_class():
     eleves_arrives = eleves_arrives.filter(date_sortie__gt=date(
         2022, 6, 30), date_sortie__lt=date(2023, 6, 30))  # hedhi balha 5atr te5oulk t3 2022-2023
     data_from_eleves = Eleves.objects.filter(id__in=eleves_arrives)
-    found_ids = [eleve.id for eleve in data_from_eleves]
+    found_ids = [eleve.uid for eleve in data_from_eleves]
     not_found_ids = [id for id in eleves_arrives if id not in found_ids]
 
     bulk_update_eleves_arrives(data_from_eleves)

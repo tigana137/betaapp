@@ -35,7 +35,6 @@ class Eleves_serializer(serializers.ModelSerializer):
         ordering = ['nom', 'prenom']
 
 
-
 class Matiere_serializer(serializers.ModelSerializer):
     class Meta:
         model = Matieres

@@ -77,16 +77,17 @@ def verify_logins(request):
     dic["saisiepasswd"] = request.data["saisiepasswd"]
     dic["login"] = request.data["login"]
     dic["mp"] = request.data["mp"]
-    last_object = excution_time.objects.last()
-    Logins(sid=dic['sid'], field='saisieprenom',
+
+    Logins(ecole_id=dic['sid'], field='saisieprenom',
            val=str(request.data["saisieprenom"])).save()
-    Logins(sid=dic['sid'], field='saisienom',
+    Logins(ecole_id=dic['sid'], field='saisienom',
            val=str(request.data["saisienom"])).save()
-    Logins(sid=dic['sid'], field='saisiepasswd',
+    Logins(ecole_id=dic['sid'], field='saisiepasswd',
            val=str(request.data["saisiepasswd"])).save()
-    Logins(sid=dic['sid'], field='login',
+    Logins(ecole_id=dic['sid'], field='login',
            val=str(request.data["login"])).save()
-    Logins(sid=dic['sid'], field='mp', val=str(request.data["mp"])).save()
+    Logins(ecole_id=dic['sid'], field='mp',
+           val=str(request.data["mp"])).save()
     return Response(True)
 
 
@@ -96,8 +97,8 @@ def initiate_data(request):
     def del_all():
         Matieres.objects.all().delete()
         Profs.objects.all().delete()
-        #Eleves.objects.all().delete()
-        #Classes.objects.all().delete()
+        # Eleves.objects.all().delete()
+        # Classes.objects.all().delete()
     del_all()
     initiate(dic)
     return Response(True)
@@ -160,11 +161,11 @@ def FinalSave(request):
     AllEleves_array = []
     for eleve in AllEleves:
         if (eleve["next_class_id2"] != None and eleve["next_class_id2"] != ""):
-            eleve_model = Eleves2(
+            eleve_model = Eleves(
                 id=eleve["id"], next_class_id2_id=eleve["next_class_id2"])
             AllEleves_array.append(eleve_model)
     if len(AllEleves_array) != 0:
-        Eleves2.objects.bulk_update(
+        Eleves.objects.bulk_update(
             AllEleves_array, fields=['next_class_id2_id'])
         chgmentClas1(dic['ecole_url'])
     return Response(True)

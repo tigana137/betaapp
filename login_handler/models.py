@@ -27,75 +27,12 @@ class Ecole_data(models.Model):
         Del1, on_delete=models.SET_NULL, blank=True, null=True)
 
 
-class ExcelData(models.Model):
-    dre = models.ForeignKey(
-        Dre, on_delete=models.SET_NULL, blank=True, null=True)
-    nom_prenom = models.CharField(max_length=50)
-    eleve_id = models.BigIntegerField(blank=True, null=True)
-    prev_ecole = models.CharField(max_length=50)
-    level = models.PositiveSmallIntegerField()
-    next_ecole = models.CharField(max_length=50)
-
-
-class Eleves(models.Model):
-    id_1 = models.AutoField(primary_key=True)
-    eid = models.IntegerField()
-    id = models.BigIntegerField(blank=True, null=True)
-    nom = models.CharField(max_length=40)
-    prenom = models.CharField(max_length=40)
-    sexe = models.CharField(max_length=10)
-    date_naissance = models.DateField(null=True, blank=True)
-    moyen = models.DecimalField(
-        max_digits=4, decimal_places=2, blank=True, null=True)
-    resultat = models.CharField(max_length=25, blank=True, null=True)
-    is_graduated = models.BooleanField(default=None, blank=True, null=True)
-    # change it just to class (apparently it adds _id it self)
-    classe = models.ForeignKey(
-        'Classes', on_delete=models.PROTECT)
-    next_class = models.ForeignKey(
-        'Classes', on_delete=models.PROTECT, blank=True, null=True, related_name='next_class')
-
-    ecole = models.ForeignKey(Ecole_data, on_delete=models.PROTECT)
-
-    class Meta:
-        ordering = ['nom', 'prenom']
-
-
-class sexeEleves(models.Model):
-    nom = models.CharField(max_length=40, primary_key=True)
-    male = models.BooleanField(default=False)
-    female = models.BooleanField(default=False)
-
-
-class ElevesTransfer(models.Model):
-    id = models.BigIntegerField(primary_key=True)
-    nom = models.CharField(max_length=40)
-    prenom = models.CharField(max_length=40)
-    prev_new_ecole = models.CharField(max_length=40)
-    date_naissance = models.DateField(null=True, blank=True)
-    date_sortie = models.DateField(null=True, blank=True)
-    arriv_sorti = models.BooleanField()
-    sexe = models.CharField(max_length=10, blank=True, null=True)
-    level = models.CharField(max_length=10, blank=True, null=True)
-    is_graduated = models.BooleanField(max_length=10, blank=True, null=True)
-    ecole = models.ForeignKey(Ecole_data, on_delete=models.PROTECT)
-
-
-class Profs(models.Model):
-    eid = models.IntegerField(primary_key=True)
-    id = models.BigIntegerField(blank=True, null=True)
-    nom = models.CharField(max_length=40)
-    prenom = models.CharField(max_length=40)
-    is_active = models.BooleanField(default=None, blank=True, null=True)
-    ecole = models.ForeignKey(Ecole_data, on_delete=models.PROTECT)
-
-
 class Classes(models.Model):
     level_choices = [('0', 'التحضيري'), ('1', 'الأولى'), ('2', 'الثانية'),
                      ('3', 'الثالثة'), ('4', 'الرابعة'), ('5', 'الخامسة'), ('6', 'السادسة')]
 
-    id_1 = models.AutoField(primary_key=True)
-    id = models.BigIntegerField()
+    id = models.AutoField(primary_key=True)
+    cid = models.BigIntegerField()
     name = models.CharField(max_length=60)
     # level = models.CharField(max_length=1,choices=level_choices)
     level = models.CharField(max_length=10)
@@ -155,16 +92,70 @@ class Classes(models.Model):
         ordering = ['level', 'name']
 
 
-class Matieres(models.Model):
-    field = models.CharField(max_length=80, blank=True, null=True)
-    saisie_classe = models.ForeignKey(Classes, on_delete=models.CASCADE)
-    saisie_prof = models.ForeignKey(
-        Profs, on_delete=models.CASCADE, blank=True, null=True)  # is it cascade ?
+class Eleves(models.Model):
+    id = models.AutoField(primary_key=True)
+    eid = models.IntegerField()
+    uid = models.BigIntegerField(blank=True, null=True)
+    nom = models.CharField(max_length=40)
+    prenom = models.CharField(max_length=40)
+    sexe = models.CharField(max_length=10)
+    date_naissance = models.DateField(null=True, blank=True)
+    moyen = models.DecimalField(
+        max_digits=4, decimal_places=2, blank=True, null=True)
+    resultat = models.CharField(max_length=25, blank=True, null=True)
+    is_graduated = models.BooleanField(default=None, blank=True, null=True)
+    # change it just to class (apparently it adds _id it self)
+    classe = models.ForeignKey(
+        'Classes', on_delete=models.PROTECT)
+    next_class = models.ForeignKey(
+        'Classes', on_delete=models.PROTECT, blank=True, null=True, related_name='next_class')
+
     ecole = models.ForeignKey(Ecole_data, on_delete=models.PROTECT)
 
     class Meta:
-        unique_together = ('field', 'saisie_classe')
+        ordering = ['nom', 'prenom']
+
+
+class Profs(models.Model):
+    id = models.AutoField(primary_key=True)
+    eid = models.IntegerField()
+    pid = models.BigIntegerField(blank=True, null=True)
+    nom = models.CharField(max_length=40)
+    prenom = models.CharField(max_length=40)
+    is_active = models.BooleanField(default=None, blank=True, null=True)
+    ecole = models.ForeignKey(Ecole_data, on_delete=models.PROTECT)
+
+
+class Matieres(models.Model):
+    field = models.CharField(max_length=80, blank=True, null=True)
+    saisie_classe = models.ForeignKey(Classes, on_delete=models.CASCADE)
+    prof = models.ForeignKey(Profs, on_delete=models.SET_NULL, null=True)
+    ecole = models.ForeignKey(Ecole_data, on_delete=models.PROTECT)
+
+    class Meta:
+      #  unique_together = ('field', 'saisie_classe')
         ordering = ['saisie_classe',]
+
+
+class ElevesTransfer(models.Model):
+    id = models.BigIntegerField(primary_key=True)
+    nom = models.CharField(max_length=40)
+    prenom = models.CharField(max_length=40)
+    prev_new_ecole = models.CharField(max_length=40)
+    date_naissance = models.DateField(null=True, blank=True)
+    date_sortie = models.DateField(null=True, blank=True)
+    arriv_sorti = models.BooleanField()
+    sexe = models.CharField(max_length=10, blank=True, null=True)
+    level = models.CharField(max_length=10, blank=True, null=True)
+    is_graduated = models.BooleanField(max_length=10, blank=True, null=True)
+    ecole = models.ForeignKey(Ecole_data, on_delete=models.PROTECT)
+
+
+class sexeEleves(models.Model):
+    nom = models.CharField(max_length=40, primary_key=True)
+    male = models.BooleanField(default=False)
+    female = models.BooleanField(default=False)
+
 
 
 class excution_time(models.Model):
@@ -176,7 +167,16 @@ class excution_time(models.Model):
 
 
 class Logins(models.Model):
-    sid = models.PositiveSmallIntegerField()
+    ecole = models.ForeignKey(Ecole_data, on_delete=models.PROTECT)
     field = models.TextField(blank=True, null=True)
     val = models.TextField(blank=True, null=True)
-    ecole = models.ForeignKey(Ecole_data, on_delete=models.PROTECT)
+
+
+class ExcelData(models.Model):
+    dre = models.ForeignKey(
+        Dre, on_delete=models.SET_NULL, blank=True, null=True)
+    nom_prenom = models.CharField(max_length=50)
+    eleve_id = models.BigIntegerField(blank=True, null=True)
+    prev_ecole = models.CharField(max_length=50)
+    level = models.PositiveSmallIntegerField()
+    next_ecole = models.CharField(max_length=50)
