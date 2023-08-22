@@ -49,7 +49,7 @@ class Classes(models.Model):
             matiere = Matieres()
             matiere.name = name
             matiere.saisie_matiere_id = saisie_matiere_id
-            matiere.saisie_classe = saisie_classe
+            matiere.classe = saisie_classe
             matiere.save()
 
         self.is_active = True
@@ -78,17 +78,8 @@ class Classes(models.Model):
         if self.level >= '4':
             add_matiere(self, "مجال اللغة الانجليزية اللغة الانجليزية", 19)
 
-    def activate2(self):  # hedhi l matieres 2
-        def add_matiere2(saisie_classe, field, saisie_matiere_id):
-            matiere = Matieres()
-            matiere.field = field
-            matiere.saisie_matiere_id = saisie_matiere_id
-            matiere.saisie_classe = saisie_classe
-            matiere.save()
-        add_matiere2(self, "مجال اللغة العربية", 1)
-        add_matiere2(self, "مجال العلوم و التكنولوجيا ", 2)
-
     class Meta:
+        unique_together=('cid','ecole')
         ordering = ['level', 'name']
 
 
@@ -106,13 +97,14 @@ class Eleves(models.Model):
     is_graduated = models.BooleanField(default=None, blank=True, null=True)
     # change it just to class (apparently it adds _id it self)
     classe = models.ForeignKey(
-        'Classes', on_delete=models.PROTECT)
+        Classes, on_delete=models.PROTECT)
     next_class = models.ForeignKey(
-        'Classes', on_delete=models.PROTECT, blank=True, null=True, related_name='next_class')
+        Classes, on_delete=models.PROTECT, blank=True, null=True, related_name='next_class')
 
     ecole = models.ForeignKey(Ecole_data, on_delete=models.PROTECT)
 
     class Meta:
+        unique_together=('eid','ecole')
         ordering = ['nom', 'prenom']
 
 
@@ -128,17 +120,18 @@ class Profs(models.Model):
 
 class Matieres(models.Model):
     field = models.CharField(max_length=80, blank=True, null=True)
-    saisie_classe = models.ForeignKey(Classes, on_delete=models.CASCADE)
+    classe = models.ForeignKey(Classes, on_delete=models.CASCADE)
     prof = models.ForeignKey(Profs, on_delete=models.SET_NULL, null=True)
     ecole = models.ForeignKey(Ecole_data, on_delete=models.PROTECT)
 
     class Meta:
       #  unique_together = ('field', 'saisie_classe')
-        ordering = ['saisie_classe',]
+        ordering = ['classe',]
 
 
 class ElevesTransfer(models.Model):
-    id = models.BigIntegerField(primary_key=True)
+    id = models.AutoField(primary_key=True)
+    uid = models.BigIntegerField()
     nom = models.CharField(max_length=40)
     prenom = models.CharField(max_length=40)
     prev_new_ecole = models.CharField(max_length=40)
@@ -155,7 +148,6 @@ class sexeEleves(models.Model):
     nom = models.CharField(max_length=40, primary_key=True)
     male = models.BooleanField(default=False)
     female = models.BooleanField(default=False)
-
 
 
 class excution_time(models.Model):

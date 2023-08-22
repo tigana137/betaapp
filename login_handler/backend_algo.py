@@ -13,12 +13,9 @@ from django.db import transaction, connection
 from .models import Classes, Ecole_data, Eleves, ElevesTransfer, Matieres, Matieres, Profs, Del1, Dre, excution_time, sexeEleves
 
 from pprint import pprint
-request = requests.session()
-classes_dict = {}
-eleve_dict = {}
 
 
-def class_ids(ecole_url):   # te5ou tous les class id and level
+def class_ids(request, classes_dict, ecole_url):   # te5ou tous les class id and level
     class_level = {"التحضيري": "0", "الأولى": "1", "الثانية": "2",
                    "الثالثة": "3", "الرابعة": "4", "الخامسة": "5", "السادسة": "6"}
     url = ecole_url+"consult_classe.php"
@@ -35,7 +32,7 @@ def class_ids(ecole_url):   # te5ou tous les class id and level
         classes_dict[classe_id] = [class_level[classe_niv]]
 
 
-def extract(ecole_url):
+def extract(request, classes_dict, eleve_dict, ecole_url):
     def is_valid_date_string(date_string):
         try:
             datetime.strptime(date_string, "%Y/%m/%d")
@@ -79,7 +76,7 @@ def extract(ecole_url):
                                    sexe, date_naissance, class_id]
 
 
-def insert_data_sql(sid):
+def insert_data_sql(classes_dict, eleve_dict, sid):
 
     def alter_name(nom):
         nom = nom.replace('َ', '')  # fat7a
@@ -94,11 +91,11 @@ def insert_data_sql(sid):
         return nom
 
     class_objects = []
-    for p, (name, level, count, male_count, female_count) in classes_dict.items():
+    for p, (level, name,  count, male_count, female_count) in classes_dict.items():
         classe = Classes(
-            id=p,
-            name=level,
-            level=name,
+            cid=p,
+            name=name,
+            level=level,
             count=count,
             male_count=male_count,
             female_count=female_count,
@@ -109,20 +106,20 @@ def insert_data_sql(sid):
     Classes.objects.bulk_create(class_objects)
 
     classes_ids = Classes.objects.filter(
-        ecole_id=sid).values_list('id', 'id_1')
+        ecole_id=sid).values_list('cid', 'id')
     classes_ids_dic = {}
-    for id, id_1 in classes_ids:
-        classes_ids_dic[str(id)] = str(id_1)
+    for cid, id in classes_ids:
+        classes_ids_dic[str(cid)] = str(id)
 
     eleve_objects = []
     male_eleves_array = []
     female_eleves_array = []
 
-    for p, (id, nom, prenom, sexe, date_naissance, classe_id) in eleve_dict.items():
+    for p, (uid, nom, prenom, sexe, date_naissance, classe_id) in eleve_dict.items():
 
         eleve = Eleves(
             eid=p,
-            id=(id if id != "" else None),
+            uid=(uid if uid != "" else None),
             nom=nom,
             prenom=prenom,
             sexe=sexe,
@@ -157,36 +154,35 @@ def insert_data_sql(sid):
 
 # b4 callin it u ll wrap it in if statement cuz most likely it s not avaible if the annuelle_prep is already enabled
 # n3rch chniya l cond bch t3ml 5atr idk yet prep annuel chisir ama chouf b3d l enable t3 l prep nrmlmnt yjik msg douba me tod5l l jadwl l ta9yimi zid 7ottou heka condition fil fonction hedhi just to be extra careful
-def extract_moyen(ecole_url, sid):
-    def custom_bulk_update_using_secondary_key(eleves_dic):
+def extract_moyen(request,ecole_url, sid):
+    def custom_bulk_update_using_secondary_key(eleves_array):
         batch_size = 100  # Adjust this based on your database and performance testing
 
         # Generate SQL updates and parameters for each batch
-        updates_list = list(eleves_dic.items())
-        for batch_start in range(0, len(eleves_dic), batch_size):
+        for batch_start in range(0, len(eleves_array), batch_size):
             batch_end = batch_start + batch_size
-            batch_updates = updates_list[batch_start:batch_end]
+            batch_updates = eleves_array[batch_start:batch_end]
             # Construct the SQL update statement
             sql = """
                 UPDATE login_handler_eleves
                 SET moyen = CASE 
             """
             params = []
-            for id, (float_moyen, resultat, is_graduated) in batch_updates:
-                sql += f"WHEN id = %s AND ecole_id = %s THEN %s "
-                params.extend([id, sid, float_moyen])
+            for uid, float_moyen, resultat, is_graduated in batch_updates:
+                sql += f"WHEN uid = %s AND ecole_id = %s THEN %s "
+                params.extend([uid, sid, float_moyen])
 
             sql += "END, resultat = CASE "
-            for id, (float_moyen, resultat, is_graduated) in batch_updates:
-                sql += f"WHEN id = %s AND ecole_id = %s THEN %s "
-                params.extend([id, sid, resultat])
+            for uid, float_moyen, resultat, is_graduated in batch_updates:
+                sql += f"WHEN uid = %s AND ecole_id = %s THEN %s "
+                params.extend([uid, sid, resultat])
 
             sql += "END, is_graduated = CASE "
-            for id, (float_moyen, resultat, is_graduated) in batch_updates:
-                sql += f"WHEN id = %s AND ecole_id = %s THEN %s "
-                params.extend([id, sid, is_graduated])
+            for uid, float_moyen, resultat, is_graduated in batch_updates:
+                sql += f"WHEN uid = %s AND ecole_id = %s THEN %s "
+                params.extend([uid, sid, is_graduated])
 
-            sql += "END WHERE id IN (%s)" % ','.join(
+            sql += "END WHERE uid IN (%s)" % ','.join(
                 ['%s'] * len(batch_updates))
             params.extend(eleve_data[0] for eleve_data in batch_updates)
 
@@ -200,8 +196,8 @@ def extract_moyen(ecole_url, sid):
     if condition():
         url = ecole_url + 'pdf/pdf_recapfinal.php?id='
         classes = Classes.objects.filter(
-            level__gt=0, ecole_id=sid).values_list('id', flat=True)
-        eleves_dic = {}
+            level__gt=0, ecole_id=sid).values_list('cid', flat=True)
+        eleves_array = []
         for active_class in classes:
             url1 = url+str(active_class)
             response = request.get(url=url1)
@@ -211,6 +207,8 @@ def extract_moyen(ecole_url, sid):
             td_s = [i for i in table.children if i != '\n']
             for i in range(1, len(td_s), 8):  # if u wonderin what is this look up
                 id = td_s[i+1].text.strip()
+                if id == "" :
+                    continue    # ~
                 moyen = td_s[i+5].text.strip()
                 float_moyen = float(moyen) if moyen != '' else None
                 resultat = td_s[i+7].text.strip()
@@ -223,17 +221,16 @@ def extract_moyen(ecole_url, sid):
                     is_graduated = None
                     resultat = None
 
-                eleves_dic[id] = (float_moyen, resultat, is_graduated)
-
-        custom_bulk_update_using_secondary_key(eleves_dic)
+                eleves_array.append((id,float_moyen, resultat, is_graduated))
+        custom_bulk_update_using_secondary_key(eleves_array)
 
     else:
         def eleves_racha_age():
             year = 2013  # yzid yn9os kol 3al maybe a3melou algo for that
             for i in range(1, 7):
                 classes_ofLevel = Classes.objects.filter(
-                    level=i, ecole_id=sid).values_list('id_1', flat=True)
-                old_eleves_lt10 = Eleves.objects.filter(classe_id__in=classes_ofLevel, ecole_id=sid).filter(
+                    level=i, ecole_id=sid).values_list('id', flat=True)
+                old_eleves_lt10 = Eleves.objects.filter(classe_id__in=classes_ofLevel).filter(
                     date_naissance__lt=date(year, 7, 16), moyen__lt=10)
                 old_eleves_lt10.update(
                     is_graduated=True, resultat='يرتقي بالإسعاف العمري')
@@ -246,7 +243,7 @@ def extract_moyen(ecole_url, sid):
             "supp": "20",
             "liste": "ابعث",
         }
-        eleves_dic = {}
+        eleves_array = []
         for i in range(1, 7):
             payload["niveau"] = str(i)
             response = request.post(url, data=payload)
@@ -261,16 +258,18 @@ def extract_moyen(ecole_url, sid):
                 moyen = eleve_data[5].text.strip()
                 if eleve_id != '':
                     moyen_float = float(moyen) if moyen != '' else None
-                    eleves_dic[eleve_id] = [moyen_float]
+                    resultat= None
+                    is_graduated=None
                     if moyen_float >= 10:
-                        eleves_dic[eleve_id].append('يرتقي')
-                        eleves_dic[eleve_id].append(True)
+                        resultat='يرتقي'
+                        is_graduated=True
                     elif moyen_float < 9:
-                        eleves_dic[eleve_id].append('يرسب')
-                        eleves_dic[eleve_id].append(False)
+                        resultat='يرسب'
+                        is_graduated=False
                     else:
-                        eleves_dic[eleve_id].append(None)
-                        eleves_dic[eleve_id].append(None)
+                        resultat=None
+                        is_graduated=None
+                    eleves_array.append((eleve_id,moyen_float, resultat, is_graduated))
                 else:
                     nom_prenom = eleve_data[1].text.strip()
                     eleve = Eleves.objects.annotate(full_name_concat=Concat(F('nom'), Value('  '), F('prenom'))
@@ -289,11 +288,13 @@ def extract_moyen(ecole_url, sid):
                     else:
                         print(nom_prenom + ' not found id = none')
 
-        custom_bulk_update_using_secondary_key(eleves_dic)
+        custom_bulk_update_using_secondary_key(eleves_array)
         eleves_racha_age()
 
 
-def prof_data(ecole_url, sid):   # 9a3d te5ou fil info l kol meme ci 9a3d test3ml ken fil eid nom prenom chouf ken 7achtk bihom sinn let them go
+
+
+def prof_data(request,ecole_url, sid):   # 9a3d te5ou fil info l kol meme ci 9a3d test3ml ken fil eid nom prenom chouf ken 7achtk bihom sinn let them go
     url = ecole_url+"list_enseignant.php"
     response = request.get(url)
     soup = bs(response.text, 'html.parser')
@@ -314,7 +315,7 @@ def prof_data(ecole_url, sid):   # 9a3d te5ou fil info l kol meme ci 9a3d test3m
             eid=prof_eid,
             nom=prof_name,
             prenom=prof_prenom,
-            id=prof_id_ministre if prof_id_ministre != '' else None,
+            pid=prof_id_ministre if prof_id_ministre != '' else None,
             ecole_id=sid
         )
         profs_array.append(prof)
@@ -323,7 +324,7 @@ def prof_data(ecole_url, sid):   # 9a3d te5ou fil info l kol meme ci 9a3d test3m
 
 
 # look if this one still available after prep annee
-def check_active_classes(ecole_url):
+def check_active_classes(request,ecole_url,sid):
     url = ecole_url+"modifaffect.php"
     response = request.get(url=url)
     soup = bs(response.text, 'html.parser')
@@ -331,108 +332,84 @@ def check_active_classes(ecole_url):
     tr_table = soup.find('tr', {"id": 'cadreCentral0'})
 
     trs = tr_table.findAll('tr', {"class": 'tabnormal2'})
+
+    classes_dic={}
+    classes = Classes.objects.filter(ecole_id=sid).values_list('name','id')
+    for name , id in classes:
+        classes_dic[name]=id
+    classes=[]
     for tr in trs:
         classe_name = tr.td.text.strip()
-        classe = Classes.objects.get(name=classe_name)
-        classe.is_active = True  # hedhi lil Matieres
-        # classe.activate()   # hedhi lil Matieres2
-        classe.save()
+        classe = Classes(id=classes_dic[classe_name],is_active=True)
+        classes.append(classe)
+    Classes.objects.bulk_update(classes,fields=['is_active'])
 
 
-def matieres2(ecole_url):    # not used wel matiere tbadlk wallet Matiers2 (n7ki 3al model)
-    active_classes = Classes.objects.filter(is_active=True)
-    url = ecole_url+"modifaffect2.php?saisie_classe_envoi="
-    payload = {"saisie_classe_envoi": ""}
-    for active_class in active_classes:
-        payload["saisie_classe_envoi"] = str(active_class.cid)
-        response = request.get(url=url+str(active_class.cid), data=payload)
-        soup = bs(response.content.decode(
-            encoding='utf-8', errors='ignore'), 'html.parser')
-        tr_table = soup.find('tr', {"id": 'cadreCentral0'})
-        trs = tr_table.td.table.tr.td.table
-        trs_list = [i for i in trs.findChildren('tr')]
-        for tr in trs_list[1:]:
-            tds = [i for i in tr.children if i != '\n']
-            prof_eid = tds[2].find('select').option['value']
-            nom_matiere = tds[1].find('select').option['value']
-            if prof_eid != "0":
-                nom_matiere = tds[1].find('select').option.text.strip()
-                try:
-                    matiere = Matieres.objects.get(name__contains=nom_matiere[len(
-                        nom_matiere)-7:], saisie_classe=active_class.cid)
-                except:
-                    print("error matieres2 : "+nom_matiere +
-                          '  '+str(active_class.cid))
-                matiere.saisie_prof = Profs.objects.get(eid=int(prof_eid))
-                matiere.save()
-
-
-def matieres(ecole_url):
+def matieres(request,ecole_url,sid):    # ~works but u didnt give it 100% check minors conditions or somen
+    profs_ = Profs.objects.filter(ecole_id=sid).values_list('eid','id')
+    profs_ids={}
+    for eid,id in profs_:
+        profs_ids[str(eid)]=id
     matieres_array = []
 
     def createprof0():  # just in case l matiere fihch prof
         prof0 = Profs(eid=0)
         prof0.nom = ""
         prof0.prenom = ""
+        prof0.ecole = Ecole_data.objects.get(sid=sid)
         prof0.save()
 
     def create_matiere(classe, field_name, prof_id):
-        # matiere = Matieres()
-        # matiere.field = field_name
-        # matiere.saisie_classe = classe
-        # prof = Profs.objects.get(eid=int(prof_id))
-        # matiere.saisie_prof = prof
-        # matiere.save()
         matiere = Matieres(
             field=field_name,
-            saisie_classe=classe,
-            saisie_prof_id=prof_id,
+            classe=classe,
+            prof_id=prof_id,
+            ecole_id = sid,
         )
         matieres_array.append(matiere)
 
     def add_matieres(classe, level, matieres_dic):
         prof_id_arab = matieres_dic["مجال اللغة العربية التواصل الشفوي و المحفوظات"]
-        create_matiere(classe, "arab", prof_id_arab)
+        create_matiere(classe, "arab", profs_ids[prof_id_arab])
 
         prof_id_math = matieres_dic["مجال العلوم و التكنولوجيا الرياضيات"]
-        create_matiere(classe, "math", prof_id_math)
+        create_matiere(classe, "math", profs_ids[prof_id_math])
 
         prof_id_science = matieres_dic["مجال العلوم و التكنولوجيا الايقاظ العلمي"]
-        create_matiere(classe, "science", prof_id_science)
+        create_matiere(classe, "science", profs_ids[prof_id_science])
 
         prof_id_technique = matieres_dic["مجال العلوم و التكنولوجيا التربية التكنولوجية"]
-        create_matiere(classe, "technique", prof_id_technique)
+        create_matiere(classe, "technique", profs_ids[prof_id_technique])
 
         prof_id_islam = matieres_dic["مجال التنشئة التربية الاسلامية"]
-        create_matiere(classe, "islam", prof_id_islam)
+        create_matiere(classe, "islam", profs_ids[prof_id_islam])
 
         if level >= "5":
             prof_id_histoiregeo = matieres_dic["مجال التنشئة التاريخ"]
-            create_matiere(classe, "histoiregeo", prof_id_histoiregeo)
+            create_matiere(classe, "histoiregeo", profs_ids[prof_id_histoiregeo])
 
         prof_id_draw = matieres_dic["مجال التنشئة التربية التشكيلية"]
-        create_matiere(classe, "draw", prof_id_draw)
+        create_matiere(classe, "draw", profs_ids[prof_id_draw])
 
         prof_id_music = matieres_dic["مجال التنشئة التربية الموسيقية"]
-        create_matiere(classe, "music", prof_id_music)
+        create_matiere(classe, "music", profs_ids[prof_id_music])
 
         prof_id_sport = matieres_dic["مجال التنشئة التربية البدنية"]
-        create_matiere(classe, "sport", prof_id_sport)
+        create_matiere(classe, "sport", profs_ids[prof_id_sport])
 
         if level >= "2":
             prof_id_francais = matieres_dic["مجال اللغة الفرنسية Exp. Orale Et Recitation"]
-            create_matiere(classe, "francais", prof_id_francais)
+            create_matiere(classe, "francais", profs_ids[prof_id_francais])
 
         if level >= "4":
             prof_id_anglais = matieres_dic["مجال اللغة الانجليزية اللغة الانجليزية"]
-            create_matiere(classe, "anglais", prof_id_anglais)
+            create_matiere(classe, "anglais", profs_ids[prof_id_anglais])
 
     createprof0()
-    active_classes = Classes.objects.filter(is_active=True)
+    active_classes = Classes.objects.filter(is_active=True,ecole_id=sid)
     url = ecole_url+"modifaffect2.php?saisie_classe_envoi="
     payload = {"saisie_classe_envoi": ""}
     for active_class in active_classes:
-        start_time = time.time()
         matieres_dic = {}
         payload["saisie_classe_envoi"] = str(active_class.cid)
         response = request.get(url=url+str(active_class.cid), data=payload)
@@ -446,10 +423,9 @@ def matieres(ecole_url):
             prof_eid = tds[2].find('select').option['value'].strip()
             nom_matiere = tds[1].find('select').option.text.strip()
             matieres_dic[nom_matiere] = prof_eid
-        start_time = time.time()
         add_matieres(active_class, active_class.level, matieres_dic)
 
-    inactive_classes = Classes.objects.filter(is_active=False)
+    inactive_classes = Classes.objects.filter(is_active=False,ecole_id=sid)
     for inactive_class in inactive_classes:
         matieres_dic = {
             "مجال اللغة العربية التواصل الشفوي و المحفوظات": "0",
@@ -465,7 +441,6 @@ def matieres(ecole_url):
             "مجال اللغة الانجليزية اللغة الانجليزية": "0",
         }
         add_matieres(inactive_class, inactive_class.level, matieres_dic)
-    start_time = time.time()
     with transaction.atomic():
         Matieres.objects.bulk_create(matieres_array)
 
@@ -481,9 +456,9 @@ def check_active_profs():
         prof.save()
 
 
-def preparatoire_is_graduated(sid):
+def preparatoire_is_graduated(sid):    
     prep_classes_id = Classes.objects.filter(
-        level='0', ecole_id=sid).values_list('id_1', flat=True)
+        level='0', ecole_id=sid).values_list('id', flat=True)
     prep_eleves = Eleves.objects.filter(classe_id__in=prep_classes_id)
     for eleve in prep_eleves:
         eleve.is_graduated = True
@@ -492,6 +467,9 @@ def preparatoire_is_graduated(sid):
 
 
 def initiate(dic):
+    request = requests.session()
+    classes_dict = {}
+    eleve_dict = {}
     url = dic['ecole_url'] + "acces.php"
     payload = {"saisieprenom": dic["saisieprenom"],
                "saisienom": dic["saisienom"],
@@ -501,48 +479,53 @@ def initiate(dic):
 
     request.post(url=url, data=payload)
 
-    prof_data(dic['ecole_url'])
+    first_start_time = time.time()
+    matieres(request,dic['ecole_url'], dic['sid'])
+    end_time = time.time()
+    execution_time = end_time - first_start_time
+    pprint(execution_time)
     return
+
+
     # --------------
     # last_object = excution_time.objects.last()
     # new_id2 = last_object.id2 +1
 
     first_start_time = time.time()
-    class_ids(dic['ecole_url'])
+    class_ids(request, classes_dict, dic['ecole_url'])
     end_time = time.time()
     execution_time = end_time - first_start_time
     # excution_time(id2=new_id2,funct='class_ids',time=str(execution_time)).save()
-
     start_time = time.time()
-    extract(dic['ecole_url'])
+    extract(request, classes_dict, eleve_dict,dic['ecole_url'])
     end_time = time.time()
     execution_time = end_time - start_time
     # excution_time(id2=new_id2,funct='extract',time=str(execution_time)).save()
 
     start_time = time.time()
-    insert_data_sql(dic['sid'])
+    insert_data_sql(classes_dict, eleve_dict,dic['sid'])
     preparatoire_is_graduated(dic['sid'])
     end_time = time.time()
     execution_time = end_time - start_time
     # excution_time(id2=new_id2,funct='insert_data_sql',time=str(execution_time)).save()
     start_time = time.time()
     if prep_annee_scolaire_is_available(dic['ecole_url']):
-        extract_moyen(dic['ecole_url'], dic['sid'])
+        extract_moyen(request,dic['ecole_url'], dic['sid'])
     else:
-        extract_moyen_from_archive(dic['ecole_url'], dic['sid'])
+        extract_moyen_from_archive(request,dic['ecole_url'], dic['sid'])
     end_time = time.time()
     execution_time = end_time - start_time
     # excution_time(id2=new_id2,funct='extract_moyen',time=str(execution_time)).save()
 
-    return
+    
     start_time = time.time()
-    prof_data(dic['ecole_url'])
+    prof_data(request,dic['ecole_url'],dic['sid'])
     end_time = time.time()
     execution_time = end_time - start_time
     # excution_time(id2=new_id2,funct='prof_data',time=str(execution_time)).save()
 
     start_time = time.time()
-    check_active_classes(dic['ecole_url'])
+    check_active_classes(request,dic['ecole_url'],dic['sid'])   # ~ do u rlly need it ? ,
     end_time = time.time()
     execution_time = end_time - start_time
     # excution_time(id2=new_id2,funct='check_active_classes',time=str(execution_time)).save()
@@ -578,12 +561,12 @@ def initiate(dic):
 
 
 # ken prep_annee_scolaire_is_available is false
-def extract_moyen_from_archive(ecole_url, sid):
+def extract_moyen_from_archive(request,ecole_url, sid): # ~ na7i l case ki zibbi wel bulk update too
     def eleves_racha_age():
         year = 2013  # yzid yn9os kol 3al maybe a3melou algo for that
         for i in range(1, 7):
             classes_ofLevel = Classes.objects.filter(
-                level=i, ecole_id=sid).values_list('id_1', flat=True)
+                level=i, ecole_id=sid).values_list('id', flat=True)
             old_eleves_lt10 = Eleves.objects.filter(classe_id__in=classes_ofLevel, ecole_id=sid).filter(
                 date_naissance__lt=date(year, 7, 16), moyen__lt=10)
             old_eleves_lt10.update(
@@ -597,17 +580,17 @@ def extract_moyen_from_archive(ecole_url, sid):
     table = soup.find('table', {'id': 'datatables'}).tbody
     eleves_urls = list(table.find_all('a'))
     urls = []
-    for eleve_urls in eleves_urls:
+    for eleve_url in eleves_urls:
         try:
-            if eleve_urls['href'].find('visu_bulletin_finaleleve') != -1:
-                urls.append(eleve_urls['href'])
+            if eleve_url['href'].find('visu_bulletin_finaleleve') != -1:
+                urls.append(eleve_url['href'])
         except:
-            print("error extract_moyen_from_archive : "+eleve_urls)
+            print("error extract_moyen_from_archive : "+eleve_url)
     existing_students = Eleves.objects.filter(
-        ecole_id=sid).values_list('eid', 'id_1')
+        ecole_id=sid).values_list('eid', 'id')
     pks_dic = {}
-    for eid, id_1 in existing_students:
-        pks_dic[eid] = id_1
+    for eid, id in existing_students:
+        pks_dic[eid] = id
 
     def del_old_eid(url):
         index1 = url.find("idelev=")
@@ -650,7 +633,7 @@ def extract_moyen_from_archive(ecole_url, sid):
             output_field=BooleanField()
         )
 
-        eleve = Eleves(id_1=pks_dic[eid], moyen=moyen_float, resultat=resultat,
+        eleve = Eleves(id=pks_dic[eid], moyen=moyen_float, resultat=resultat,
                        is_graduated=case_expression)
         eleves_to_update.append(eleve)
 
@@ -662,7 +645,7 @@ def extract_moyen_from_archive(ecole_url, sid):
 # check  تحضير السنة الدراسية manzoul 3leha walle
 # laktheriya bch tbadlha
 def prep_annee_scolaire_is_available(ecole_url):
-    return True
+    return False
     url = ecole_url+"newannee.php"
     response = request.get(url)
     if response.text.find("لقد قمتم  بتحضير السنة الدراسية سابقاً بنجاح") != -1:
