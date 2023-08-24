@@ -21,6 +21,7 @@ class Ecole_data(models.Model):
     pr_nom = models.CharField(max_length=50)
     pr_prenom = models.CharField(max_length=50)
     url = models.CharField(max_length=100)
+    nbr_elev=models.PositiveSmallIntegerField()
     dre = models.ForeignKey(
         Dre, on_delete=models.SET_NULL, blank=True, null=True)
     del1 = models.ForeignKey(
@@ -114,7 +115,7 @@ class Profs(models.Model):
     pid = models.BigIntegerField(blank=True, null=True)
     nom = models.CharField(max_length=40)
     prenom = models.CharField(max_length=40)
-    is_active = models.BooleanField(default=None, blank=True, null=True)
+    is_active = models.BooleanField(default=False, blank=True, null=True)
     ecole = models.ForeignKey(Ecole_data, on_delete=models.PROTECT)
 
 
@@ -131,7 +132,7 @@ class Matieres(models.Model):
 
 class ElevesTransfer(models.Model):
     id = models.AutoField(primary_key=True)
-    uid = models.BigIntegerField()
+    uid = models.BigIntegerField(blank=True,null=True)
     nom = models.CharField(max_length=40)
     prenom = models.CharField(max_length=40)
     prev_new_ecole = models.CharField(max_length=40)

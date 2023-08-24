@@ -1,3 +1,4 @@
+import pprint
 from django.shortcuts import render
 from django.http import HttpResponse
 from django.core.exceptions import ObjectDoesNotExist
@@ -19,12 +20,12 @@ from bs4 import BeautifulSoup as bs
 from django.http import JsonResponse
 from openpyxl import load_workbook
 # Create your views here.
-dic = {"ecole_url": ""}  # rename_it
+
 dic = {'ecole_url': 'http://www.ent3.cnte.tn/sousse/ahl-jmii/', 'saisieprenom': 'محرز',
        'saisienom': 'بن هلال', 'saisiepasswd': '1925', 'login': '843422', 'mp': 'rB3Mv1', 'sid': '843422'}
 
-dic = {'ecole_url': 'http://www.ent3.cnte.tn/sousse/el-amal-cite-erriadh/', 'saisieprenom': 'عبد السلام',
-       'saisienom': 'الشرفي', 'saisiepasswd': '06104104', 'login': '842920', 'mp': '', 'sid': '842920'}
+#dic = {'ecole_url': 'http://www.ent3.cnte.tn/sousse/el-amal-cite-erriadh/', 'saisieprenom': 'عبد السلام',
+#       'saisienom': 'الشرفي', 'saisiepasswd': '06104104', 'login': '842920', 'mp': '', 'sid': '842920'}
 
 
 @api_view(['GET'])
@@ -33,15 +34,27 @@ def del_all(request):
     Profs.objects.all().delete()
     Eleves.objects.all().delete()
     Classes.objects.all().delete()
+    ElevesTransfer.objects.all().delete()
     return Response(True)
 
 
 @api_view(['GET'])
 def test(request):
+    url ='http://www.ent3.cnte.tn/sousse/sahloul/pdf/pdf_recapfinal.php?id='
+    request = requests.session()
+    for i in range(0,100):
+        url1 = url+str(i)
+        response = request.get(url=url1)
+        page = bs(response.text, 'html.parser')
+        table = page.find('table', {'border': '1', 'dir': 'rtl'})
+        # hedhi fil parsin l tr_s t3ha ytna7aw heka 3lh this one is this way
+        td_s = [i for i in table.children if i != '\n']
+        if len(td_s)>1:
+            print('wowowowow : '+str(i))
+        else:
+            print('non : '+str(i))
 
-    from datetime import date
-    from django.db import connection
-
+    
     return Response(True)
 
 
@@ -54,8 +67,7 @@ def verify_school_id(request, pk):
         serializer = ecole_data_serializer(data={'bool': False})
         serializer.is_valid()
         return Response(serializer.data)
-    dic['ecole_url'] = data.url+"/"
-    dic['sid'] = data.sid
+
     serializer = ecole_data_serializer(data, many=False)
     return Response(serializer.data)
 
@@ -63,8 +75,8 @@ def verify_school_id(request, pk):
 @api_view(['POST'])
 # yferivi si l logins t3 l stat s7a7
 def verify_logins(request):
-    return Response(True)
-    if not verify_cnte(request.data, dic["ecole_url"]):
+
+    if not verify_cnte(request.data):
         return Response(False)
 
     if request.data['mp'] != '':
@@ -72,28 +84,22 @@ def verify_logins(request):
             pass
             # return Response(False)
 
-    dic["saisieprenom"] = request.data["saisieprenom"]
-    dic["saisienom"] = request.data["saisienom"]
-    dic["saisiepasswd"] = request.data["saisiepasswd"]
-    dic["login"] = request.data["login"]
-    dic["mp"] = request.data["mp"]
-
-    Logins(ecole_id=dic['sid'], field='saisieprenom',
+    Logins(ecole_id=request.data['sid'], field='saisieprenom',
            val=str(request.data["saisieprenom"])).save()
-    Logins(ecole_id=dic['sid'], field='saisienom',
+    Logins(ecole_id=request.data['sid'], field='saisienom',
            val=str(request.data["saisienom"])).save()
-    Logins(ecole_id=dic['sid'], field='saisiepasswd',
+    Logins(ecole_id=request.data['sid'], field='saisiepasswd',
            val=str(request.data["saisiepasswd"])).save()
-    Logins(ecole_id=dic['sid'], field='login',
+    Logins(ecole_id=request.data['sid'], field='login',
            val=str(request.data["login"])).save()
-    Logins(ecole_id=dic['sid'], field='mp',
+    Logins(ecole_id=request.data['sid'], field='mp',
            val=str(request.data["mp"])).save()
     return Response(True)
 
 
-@api_view(['GET'])
+@api_view(['POST'])
 def initiate_data(request):
-
+    #return Response(True)
     def del_all():
         #Matieres.objects.all().delete()
         #Profs.objects.all().delete()
@@ -101,8 +107,11 @@ def initiate_data(request):
         #Classes.objects.all().delete()
         pass
     del_all()
-    initiate(dic)
+
+    initiate(request.data)
     return Response(True)
+    #initiate(dic)
+
 
 
 @api_view(['GET'])
@@ -111,32 +120,32 @@ def initiate_data_to_fronent(request):
 
 
 @api_view(['GET'])
-def get_all_classes(request):
+def get_all_classes(request,sid):
     classes_array = []
     for i in range(7):
-        classes = Classes.objects.filter(level=i)
+        classes = Classes.objects.filter(level=i,ecole_id=sid)
         serializer = classes_serializer(classes, many=True)
         classes_array.append(serializer.data)
     return Response(classes_array)
 
 
 @api_view(['GET'])
-def get_eleves_ofClass_array(request):
+def get_eleves_ofClass_array(request,sid):
     eleves_dic = {}
-    classes_id = Classes.objects.values_list('id', flat=True)
-    for class_id in classes_id:
-        eleves = Eleves.objects.filter(class_id=class_id)
+    classes_id = Classes.objects.filter(ecole_id=sid).values_list('id', flat=True)
+    for classe_id in classes_id:
+        eleves = Eleves.objects.filter(classe_id=classe_id)
         eleves_serializer = Eleves_serializer(eleves, many=True)
         eleves_data = eleves_serializer.data
         eleves_dict = eleves_data
-        eleves_dic[class_id] = eleves_dict
+        eleves_dic[classe_id] = eleves_dict
     return Response(eleves_dic)
 
 
 @api_view(['GET'])
-def get_working_profs(request):
+def get_working_profs(request,sid):
     profsDic = {}
-    profs = Profs.objects.exclude(eid=0).order_by('-is_active', 'nom')
+    profs = Profs.objects.filter(ecole_id=sid).exclude(eid=0).order_by('-is_active', 'nom')
     prof_serializer = Profs_serializer(profs, many=True)
     for prof in prof_serializer.data:
         profsDic[prof['eid']] = prof
@@ -144,13 +153,13 @@ def get_working_profs(request):
 
 
 @api_view(['GET'])
-def get_profs_ofClass_array(request):
+def get_profs_ofClass_array(request,sid):
     profs_dic = {}
-    classes = Classes.objects.values_list('id', flat=True)
-    for class_id in classes:
-        matieres = Matieres.objects.filter(saisie_classe_id=class_id)
+    classes = Classes.objects.filter(ecole_id=sid).values_list('id', flat=True)
+    for classe_id in classes:
+        matieres = Matieres.objects.filter(classe_id=classe_id)
         matieres_serializer = Matiere_serializer(matieres, many=True)
-        profs_dic[class_id] = matieres_serializer.data
+        profs_dic[classe_id] = matieres_serializer.data
     return Response(profs_dic)
 
 

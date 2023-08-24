@@ -18,13 +18,13 @@ class classes_serializer(serializers.ModelSerializer):
 
     class Meta:
         model = Classes
-        fields = ['id', 'name', 'level', 'count', 'is_active', 'is_examned']
+        fields = ['id', 'cid', 'name', 'level','count', 'is_active', 'is_examned']
 
 
 class Profs_serializer(serializers.ModelSerializer):
     class Meta:
         model = Profs
-        fields = ['eid', 'nom', 'prenom', 'is_active']
+        fields = ['id','eid', 'nom', 'prenom', 'is_active']
         ordering = ['nom']
 
 
