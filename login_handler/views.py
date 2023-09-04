@@ -9,10 +9,12 @@ from django.db import transaction
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
+from login_handler.second_backend import initiate2
+
 from .models import Ecole_data, Eleves, Classes, ElevesTransfer, Matieres, Matieres, Profs, Logins, Del1, Dre, sexeEleves
-from .serializers import Eleves_serializer, Matiere_serializer, Profs_serializer, classes_serializer, ecole_data_serializer
+from .serializers import Eleves_serializer, Eleves_serializer2, Matiere_serializer, Profs_serializer, classes_serializer, classes_serializer2, ecole_data_serializer
 from .views_subfunct import del__class, verify_cnte, verify_stat, add_class
-from .backend_algo import chgmentClas1, initiate
+from .backend_algo import chgmentClas1, initiate, nbr_elevs_schools
 import requests
 import time
 from bs4 import BeautifulSoup as bs
@@ -24,7 +26,7 @@ from openpyxl import load_workbook
 dic = {'ecole_url': 'http://www.ent3.cnte.tn/sousse/ahl-jmii/', 'saisieprenom': 'محرز',
        'saisienom': 'بن هلال', 'saisiepasswd': '1925', 'login': '843422', 'mp': 'rB3Mv1', 'sid': '843422'}
 
-#dic = {'ecole_url': 'http://www.ent3.cnte.tn/sousse/el-amal-cite-erriadh/', 'saisieprenom': 'عبد السلام',
+# dic = {'ecole_url': 'http://www.ent3.cnte.tn/sousse/el-amal-cite-erriadh/', 'saisieprenom': 'عبد السلام',
 #       'saisienom': 'الشرفي', 'saisiepasswd': '06104104', 'login': '842920', 'mp': '', 'sid': '842920'}
 
 
@@ -40,21 +42,20 @@ def del_all(request):
 
 @api_view(['GET'])
 def test(request):
-    url ='http://www.ent3.cnte.tn/sousse/sahloul/pdf/pdf_recapfinal.php?id='
-    request = requests.session()
-    for i in range(0,100):
-        url1 = url+str(i)
-        response = request.get(url=url1)
-        page = bs(response.text, 'html.parser')
-        table = page.find('table', {'border': '1', 'dir': 'rtl'})
-        # hedhi fil parsin l tr_s t3ha ytna7aw heka 3lh this one is this way
-        td_s = [i for i in table.children if i != '\n']
-        if len(td_s)>1:
-            print('wowowowow : '+str(i))
+    ecoles = Ecole_data.objects.filter(sid__startswith='84')
+    for ecole in ecoles:
+        payload = {
+            'ecole_url': ecole.url+'/',
+            "saisieprenom": ecole.pr_nom,
+            "saisienom": ecole.pr_prenom,
+            "saisiepasswd": '1234',
+            "saisie_membre": "administrateur",
+        }
+        if verify_cnte(payload):
+            print('wowow  :'+str(ecole.sid))
         else:
-            print('non : '+str(i))
-
-    
+            print('sid : '+str(ecole.sid) + ' non')
+        pass
     return Response(True)
 
 
@@ -97,21 +98,27 @@ def verify_logins(request):
     return Response(True)
 
 
+# zid cond ken virgin walle bch ymchi l intiatevirgin walla nnvirgin
 @api_view(['POST'])
 def initiate_data(request):
-    #return Response(True)
-    def del_all():
-        #Matieres.objects.all().delete()
-        #Profs.objects.all().delete()
-        #Eleves.objects.all().delete()
-        #Classes.objects.all().delete()
-        pass
-    del_all()
-
-    initiate(request.data)
+    initiate2(request.data)
     return Response(True)
-    #initiate(dic)
+    def del_all(dic):
+        Matieres.objects.filter(ecole_id=dic['sid']).delete()
+        Profs.objects.filter(ecole_id=dic['sid']).delete()
+        Eleves.objects.filter(ecole_id=dic['sid']).delete()
+        Classes.objects.filter(ecole_id=dic['sid']).delete()
+        pass
+    # del_all(request.data)
 
+    # initiate2(dic)
+    # initiate(request.data)
+    # sid = request.data['sid']
+    # ecole = Ecole_data.objects.get(sid=sid)
+    # ecole.virgin=False
+    # ecole.save()
+    return Response(True)
+    # initiate(dic)
 
 
 @api_view(['GET'])
@@ -120,19 +127,36 @@ def initiate_data_to_fronent(request):
 
 
 @api_view(['GET'])
-def get_all_classes(request,sid):
+def get_all_classes(request, sid):
     classes_array = []
     for i in range(7):
-        classes = Classes.objects.filter(level=i,ecole_id=sid)
+        classes = Classes.objects.filter(level=i, ecole_id=sid)
         serializer = classes_serializer(classes, many=True)
         classes_array.append(serializer.data)
     return Response(classes_array)
 
 
 @api_view(['GET'])
-def get_eleves_ofClass_array(request,sid):
+def get_all_classes2(request, sid):
+    classes_array = []
+    for i in range(7):
+        classes = Classes.objects.filter(level=i, ecole_id=sid)
+        serializer = classes_serializer2(classes, many=True)
+        classes_array.append(serializer.data)
+    return Response(classes_array)
+
+@api_view(['GET'])
+def get_next_classe(request, sid,classe_id):
+    eleves =Eleves.objects.filter(ecole_id=sid,next_class_id=classe_id)
+    serializer= Eleves_serializer2(eleves,many=True).data
+    return Response(serializer)
+
+
+@api_view(['GET'])
+def get_eleves_ofClass_array(request, sid):
     eleves_dic = {}
-    classes_id = Classes.objects.filter(ecole_id=sid).values_list('id', flat=True)
+    classes_id = Classes.objects.filter(
+        ecole_id=sid).values_list('id', flat=True)
     for classe_id in classes_id:
         eleves = Eleves.objects.filter(classe_id=classe_id)
         eleves_serializer = Eleves_serializer(eleves, many=True)
@@ -143,9 +167,10 @@ def get_eleves_ofClass_array(request,sid):
 
 
 @api_view(['GET'])
-def get_working_profs(request,sid):
+def get_working_profs(request, sid):
     profsDic = {}
-    profs = Profs.objects.filter(ecole_id=sid).exclude(eid=0).order_by('-is_active', 'nom')
+    profs = Profs.objects.filter(ecole_id=sid).exclude(
+        eid=0).order_by('-is_active', 'nom')
     prof_serializer = Profs_serializer(profs, many=True)
     for prof in prof_serializer.data:
         profsDic[prof['eid']] = prof
@@ -153,7 +178,7 @@ def get_working_profs(request,sid):
 
 
 @api_view(['GET'])
-def get_profs_ofClass_array(request,sid):
+def get_profs_ofClass_array(request, sid):
     profs_dic = {}
     classes = Classes.objects.filter(ecole_id=sid).values_list('id', flat=True)
     for classe_id in classes:
@@ -165,19 +190,40 @@ def get_profs_ofClass_array(request,sid):
 
 # @api_view(['GET'])
 @api_view(['POST'])
-def FinalSave(request):
+def SaveElevesData(request, sid):
+    try:
+        AllEleves = request.data
+        AllEleves_array = []
+        for eleve in AllEleves:
+            if (eleve["next_class"] != None and eleve["next_class"] != ""):
+                eleve_model = Eleves(
+                    id=eleve["id"], next_class_id=eleve["next_class"])
+                AllEleves_array.append(eleve_model)
+            else:
+                eleve_model = Eleves(
+                    id=eleve["id"], next_class_id=None)
+                print("next_class = none or '' : "+str(eleve["id"]))
+                AllEleves_array.append(eleve_model)
+        if len(AllEleves_array) != 0:
+            Eleves.objects.bulk_update(
+                AllEleves_array, fields=['next_class'])
+    except:
+        return Response(False)
     return Response(True)
-    AllEleves = request.data
-    AllEleves_array = []
-    for eleve in AllEleves:
-        if (eleve["next_class_id2"] != None and eleve["next_class_id2"] != ""):
-            eleve_model = Eleves(
-                id=eleve["id"], next_class_id2_id=eleve["next_class_id2"])
-            AllEleves_array.append(eleve_model)
-    if len(AllEleves_array) != 0:
-        Eleves.objects.bulk_update(
-            AllEleves_array, fields=['next_class_id2_id'])
-        chgmentClas1(dic['ecole_url'])
+
+
+@api_view(['GET'])
+def ResetElevesData(request, sid):
+    try:
+        AllelevesId = Eleves.objects.filter(
+            ecole_id=sid).values_list('id', flat=True)
+        Alleleves = []
+        for eleve_id in AllelevesId:
+            eleve = Eleves(id=eleve_id, next_class_id=None)
+            Alleleves.append(eleve)
+        Eleves.objects.bulk_update(Alleleves, fields=['next_class_id'])
+    except:
+        return Response(False)
     return Response(True)
 
 

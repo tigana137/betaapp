@@ -1,3 +1,4 @@
+import re
 import time
 from datetime import date
 import requests
@@ -15,24 +16,25 @@ from .models import Classes, Ecole_data, Eleves, ElevesTransfer, Matieres, Matie
 from pprint import pprint
 
 
-def class_ids(request, classes_dict, ecole_url):   # te5ou tous les class id and level
+# ~ tnajjm tna7i al useless data like f m count
+def class_ids(request, classes_dict, ecole_url: str):
     class_level = {"التحضيري": "0", "الأولى": "1", "الثانية": "2",
                    "الثالثة": "3", "الرابعة": "4", "الخامسة": "5", "السادسة": "6"}
     url = ecole_url+"consult_classe.php"
     response = request.get(url)
     soup = bs(response.text, 'html.parser')
     select_element = soup.find('select', {'id': 'saisie_classe'})
-    # class_list = list(select_element.find_all('option', {'id': 'select1'})) badltha me8ir verif just n case
     classes_list = [i for i in select_element.children if i != '\n']
     for classe in classes_list[1:]:
         classe_id = classe['value'].strip()
-        classe_niv = classe.text.strip()
-        index = classe_niv.find(':')
-        classe_niv = classe_niv[:index].replace(' ', '')
-        classes_dict[classe_id] = [class_level[classe_niv]]
+        classe_niv_name = classe.text.strip()
+        index = classe_niv_name.find(':')
+        classe_niv = classe_niv_name[:index].replace(' ', '')
+        classe_name = classe_niv_name[index+2:]
+        classes_dict[classe_id] = [classe_name, class_level[classe_niv]]
 
 
-def extract(request, classes_dict, eleve_dict, ecole_url):
+def extract(request, classes_dict, eleve_dict, ecole_url: str):
     def is_valid_date_string(date_string):
         try:
             datetime.strptime(date_string, "%Y/%m/%d")
@@ -49,34 +51,28 @@ def extract(request, classes_dict, eleve_dict, ecole_url):
         table = soup.find('table', {'border': '1', "align": "center"})
         tr_s = [i for i in table.children if i != '\n']
 
-        class_info = tr_s[0].td.b.font
-        class_info = list(class_info.find_all('font'))
-        class_name = class_info[0].text.strip()
-        class_count = class_info[1].text.strip()
-        class_m_count = class_info[2].text.strip()
-        class_f_count = class_info[3].text.strip()
-        classes_dict[class_id].extend(
-            [class_name, class_count, class_m_count, class_f_count])
-
         # eleves data
-        if classes_dict[class_id][2] != 0:
+        if len(tr_s) > 2:   # m3neha l tableau fer8 walle
             for eleve in tr_s[2:]:
                 eleve_data = [i for i in eleve.children if i != '\n']
-                id = eleve_data[1].text.strip()
+                id = eleve_data[1].text.strip(
+                ) if eleve_data[1].text.strip() != "" else None
                 nom = eleve_data[2].text.strip()
                 prenom = eleve_data[3].text.strip()
                 sexe = eleve_data[4].text.strip()
                 date_naissance = eleve_data[5].text.strip()
                 date_naissance = date_naissance.replace(
                     '/', '-') if is_valid_date_string(date_naissance) else None
-                eid_string = str(eleve_data[7].input['onclick'])
-                eid_index = eid_string.find("eid=")+4
-                eid = eid_string[eid_index:eid_index+4]
+                eid_expression_string = str(eleve_data[7].input['onclick'])
+                pattern = r"eid=(\d+)"
+                match = re.search(pattern, eid_expression_string)
+                eid = match.group(1)
                 eleve_dict[eid] = [id, nom, prenom,
                                    sexe, date_naissance, class_id]
 
 
 def insert_data_sql(classes_dict, eleve_dict, sid):
+    print(eleve_dict)
 
     def alter_name(nom):
         nom = nom.replace('َ', '')  # fat7a
@@ -91,14 +87,11 @@ def insert_data_sql(classes_dict, eleve_dict, sid):
         return nom
 
     class_objects = []
-    for p, (level, name,  count, male_count, female_count) in classes_dict.items():
+    for p, (name, level, ) in classes_dict.items():
         classe = Classes(
             cid=p,
             name=name,
             level=level,
-            count=count,
-            male_count=male_count,
-            female_count=female_count,
             ecole_id=sid,
         )
         class_objects.append(classe)
@@ -119,7 +112,7 @@ def insert_data_sql(classes_dict, eleve_dict, sid):
 
         eleve = Eleves(
             eid=p,
-            uid=(uid if uid != "" else None),
+            uid=uid,
             nom=nom,
             prenom=prenom,
             sexe=sexe,
@@ -148,13 +141,13 @@ def insert_data_sql(classes_dict, eleve_dict, sid):
             male_eleves_array, ignore_conflicts=True)
         sexeEleves.objects.bulk_create(
             female_eleves_array, ignore_conflicts=True)
-        sexeEleves.objects.bulk_update(male_eleves_array, fields=['male'])
+        sexeEleves.objects.bulk_update(male_eleves_array, fields=['male'],)
         sexeEleves.objects.bulk_update(female_eleves_array, fields=['female'])
 
 
 # b4 callin it u ll wrap it in if statement cuz most likely it s not avaible if the annuelle_prep is already enabled
 # n3rch chniya l cond bch t3ml 5atr idk yet prep annuel chisir ama chouf b3d l enable t3 l prep nrmlmnt yjik msg douba me tod5l l jadwl l ta9yimi zid 7ottou heka condition fil fonction hedhi just to be extra careful
-def extract_moyen(request, ecole_url, sid):
+def extract_moyen(request, ecole_url: str, sid):
     def custom_bulk_update_using_secondary_key(eleves_array):
         batch_size = 100  # Adjust this based on your database and performance testing
 
@@ -333,7 +326,7 @@ def prof_data(request, ecole_url, sid):
 
 
 # look if this one still available after prep annee
-def check_active_classes(request, ecole_url, sid):
+def check_active_classes(request, ecole_url: str, sid):
     url = ecole_url+"modifaffect.php"
     response = request.get(url=url)
     soup = bs(response.text, 'html.parser')
@@ -510,6 +503,7 @@ def initiate(dic):
     execution_time = end_time - first_start_time
     excution_time(id2=new_id2, funct='class_ids',
                   time=str(execution_time)).save()
+
     start_time = time.time()
     extract(request, classes_dict, eleve_dict, dic['ecole_url'])
     end_time = time.time()
@@ -586,7 +580,7 @@ def initiate(dic):
 
 # ken prep_annee_scolaire_is_available is false
 # ~ na7i l case ki zibbi wel bulk update too
-def extract_moyen_from_archive(request, ecole_url, sid):
+def extract_moyen_from_archive(request, ecole_url: str, sid):
     def eleves_racha_age():
         year = 2013  # yzid yn9os kol 3al maybe a3melou algo for that
         for i in range(1, 7):
@@ -669,7 +663,7 @@ def extract_moyen_from_archive(request, ecole_url, sid):
 
 # check  تحضير السنة الدراسية manzoul 3leha walle
 # laktheriya bch tbadlha
-def prep_annee_scolaire_is_available(ecole_url):
+def prep_annee_scolaire_is_available(ecole_url: str):
     return True
     url = ecole_url+"newannee.php"
     response = request.get(url)
@@ -679,7 +673,7 @@ def prep_annee_scolaire_is_available(ecole_url):
         print("String not found.")
 
 
-def Eleves_arrives_sorties(request, ecole_url, sid):
+def Eleves_arrives_sorties(request, ecole_url: str, sid):
     def is_valid_date_string(date_string):
         try:
             datetime.strptime(date_string, "%Y-%m-%d")
@@ -773,7 +767,7 @@ def Eleves_arrives_sexe_class(sid):
 
 
 ##############################
-def chgmentClas1(ecole_url):
+def chgmentClas1(ecole_url: str):
     url = ecole_url + 'chgmentClas1.php'
     sorted_classes = Classes.objects.all().order_by('-level', 'name')
     for classe in sorted_classes:
@@ -899,19 +893,55 @@ def nbr_elevs_schools():
     request = requests.session()
     request.post(url=url, data=payload)
     url = "http://www.ent.cnte.tn/stat/ecolepartiel.php?par=843422"
-    payload = {"par": "843422"}
-    response = request.get(url=url, data=payload)
+    response = request.get(url=url)
     page = bs(response.text, 'html.parser')
-    select_element = page.find('select', {'name': 'ecole'})
-    options = [i for i in select_element.children if i != '\n']
-    ls = []
-    for option in options[1:]:
-        text = option['value']
-        first_etoile = text.find("*")
-        sid = text[0:first_etoile]
-        second_etoile = text.find("*", text.find("*") + 1)
-        third_etoile = text.find("*", second_etoile + 1)
-        nbr = text[second_etoile+1:third_etoile]
-        data = Ecole_data(sid=sid, nbr_elev=nbr)
-        ls.append(data)
-    Ecole_data.objects.bulk_update(ls, fields=['nbr_elev'])
+    select_element = page.find('select',{'name':'gouv'})
+    gouvs_names = [i for i in select_element.children if i!='\n']
+    gouvs=[]
+    for gouv in gouvs_names[1:]:
+        gouv_name = gouv['value']
+        gouvs.append(gouv_name)
+    
+    for gouv in gouvs:
+        payload = {
+        'gouv': gouv,
+        'ecole': 'rien',
+        }
+        response = request.post(url=url,data=payload )
+        page = bs(response.text, 'html.parser')
+        select_element = page.find('select', {'name': 'ecole'})
+        options = [i for i in select_element.children if i != '\n']
+        ls = []
+        for option in options[1:]:
+            text = option['value']
+            first_etoile = text.find("*")
+            sid = text[0:first_etoile]
+            second_etoile = text.find("*", text.find("*") + 1)
+            third_etoile = text.find("*", second_etoile + 1)
+            nbr = text[second_etoile+1:third_etoile]
+            data = Ecole_data(sid=sid, nbr_elev=nbr)
+            ls.append(data)
+        Ecole_data.objects.bulk_update(ls, fields=['nbr_elev'])
+
+
+#######################################
+
+def other():    # ~ 5arrjt mnha l loop l fi site tall3t beha l id t3 classet w notet l tlemtha
+    url = 'http://www.ent3.cnte.tn/sousse/sahloul/pdf/pdf_recapfinal.php?id='
+    request = requests.session()
+    for i in range(0, 100):
+        url1 = url+str(i)
+        response = request.get(url=url1)
+        page = bs(response.text, 'html.parser')
+        table = page.find('table', {'border': '1', 'dir': 'rtl'})
+        # hedhi fil parsin l tr_s t3ha ytna7aw heka 3lh this one is this way
+        td_s = [i for i in table.children if i != '\n']
+        if len(td_s) > 1:
+            print('wowowowow : '+str(i))
+        else:
+            print('non : '+str(i))
+
+
+
+
+

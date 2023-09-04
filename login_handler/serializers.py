@@ -18,7 +18,13 @@ class classes_serializer(serializers.ModelSerializer):
 
     class Meta:
         model = Classes
-        fields = ['id', 'cid', 'name', 'level','count', 'is_active', 'is_examned']
+        fields = ['id', 'cid', 'name', 'level','is_active', 'is_examned']
+
+class classes_serializer2(serializers.ModelSerializer):
+    class Meta:
+        model = Classes
+        fields = ['id','name', 'level',]
+
 
 
 class Profs_serializer(serializers.ModelSerializer):
@@ -34,6 +40,11 @@ class Eleves_serializer(serializers.ModelSerializer):
         fields = '__all__'
         ordering = ['nom', 'prenom']
 
+class Eleves_serializer2(serializers.ModelSerializer):  # less data
+    class Meta:
+        model = Eleves
+        fields = ['uid','nom','prenom','sexe','date_naissance']
+        ordering = ['nom', 'prenom']
 
 class Matiere_serializer(serializers.ModelSerializer):
     class Meta:

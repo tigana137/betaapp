@@ -22,6 +22,7 @@ class Ecole_data(models.Model):
     pr_prenom = models.CharField(max_length=50)
     url = models.CharField(max_length=100)
     nbr_elev=models.PositiveSmallIntegerField()
+    virgin = models.BooleanField(default=True)
     dre = models.ForeignKey(
         Dre, on_delete=models.SET_NULL, blank=True, null=True)
     del1 = models.ForeignKey(
@@ -37,11 +38,6 @@ class Classes(models.Model):
     name = models.CharField(max_length=60)
     # level = models.CharField(max_length=1,choices=level_choices)
     level = models.CharField(max_length=10)
-    count = models.CharField(max_length=3)
-    male_count = models.CharField(max_length=3)
-    female_count = models.CharField(max_length=3)
-    next_class_id = models.ForeignKey(
-        'self', on_delete=models.SET_NULL, null=True, blank=True)
     is_active = models.BooleanField(default=False)
     ecole = models.ForeignKey(Ecole_data, on_delete=models.PROTECT)
 
@@ -100,7 +96,7 @@ class Eleves(models.Model):
     classe = models.ForeignKey(
         Classes, on_delete=models.PROTECT)
     next_class = models.ForeignKey(
-        Classes, on_delete=models.PROTECT, blank=True, null=True, related_name='next_class')
+        Classes, on_delete=models.SET_NULL, blank=True, null=True, related_name='next_class')
 
     ecole = models.ForeignKey(Ecole_data, on_delete=models.PROTECT)
 

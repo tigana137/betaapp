@@ -24,8 +24,11 @@ SECRET_KEY = 'django-insecure-t$3355u6_=vhk#3qlj6l$))jl4j&^buq84$3a)j@aj36bju52n
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
-
-ALLOWED_HOSTS = ["localhost",]
+xx = 'https://dsqdqsdxax.pagekite.me'
+xxx='xax.pagekite.me'
+ALLOWED_HOSTS = ["localhost", '127.0.0.1',xxx]
+CORS_ALLOW_ALL_ORIGINS = True  # Set to True to allow all origins
+CORS_ALLOW_CREDENTIALS = False
 
 
 # Application definition
@@ -128,11 +131,5 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-CORS_ORIGIN_ALLOW_ALL = True   # from chatgpt maybe del
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://localhost:3001",
-    "http://localhost:5173",
 
 
-]
