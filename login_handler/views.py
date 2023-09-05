@@ -101,8 +101,8 @@ def verify_logins(request):
 # zid cond ken virgin walle bch ymchi l intiatevirgin walla nnvirgin
 @api_view(['POST'])
 def initiate_data(request):
-    initiate2(request.data)
     return Response(True)
+    initiate2(request.data)
     def del_all(dic):
         Matieres.objects.filter(ecole_id=dic['sid']).delete()
         Profs.objects.filter(ecole_id=dic['sid']).delete()
